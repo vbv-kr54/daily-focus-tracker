@@ -1,4 +1,5 @@
 import { Activity, Dumbbell, Code2, Music2, type LucideIcon } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ActivityId = "jogging" | "pushups" | "vibecode" | "guitar";
 
@@ -42,4 +43,62 @@ export function lastNDays(n: number): Date[] {
     d.setDate(d.getDate() - (n - 1 - i));
     return d;
   });
+}
+
+function isoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export async function loadDateRangeFromDB(
+  startIso: string,
+  endIso: string,
+  supabase: SupabaseClient
+): Promise<Record<string, Set<ActivityId>>> {
+  const { data } = await supabase
+    .from("daily_logs")
+    .select("date, activities")
+    .gte("date", startIso)
+    .lte("date", endIso);
+
+  const result: Record<string, Set<ActivityId>> = {};
+  for (const row of data ?? []) {
+    const [y, m, d] = (row.date as string).split("-").map(Number);
+    result[new Date(y, m - 1, d).toDateString()] = new Set(
+      row.activities as ActivityId[]
+    );
+  }
+  return result;
+}
+
+export async function loadDayLogFromDB(
+  date: Date,
+  supabase: SupabaseClient
+): Promise<Set<ActivityId>> {
+  const { data, error } = await supabase
+    .from("daily_logs")
+    .select("activities")
+    .eq("date", isoDate(date))
+    .maybeSingle();
+
+  if (error || !data) return new Set();
+  return new Set(data.activities as ActivityId[]);
+}
+
+export async function saveDayLogToDB(
+  done: Set<ActivityId>,
+  date: Date,
+  supabase: SupabaseClient
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("daily_logs").upsert(
+    { user_id: user.id, date: isoDate(date), activities: Array.from(done) },
+    { onConflict: "user_id,date" }
+  );
 }

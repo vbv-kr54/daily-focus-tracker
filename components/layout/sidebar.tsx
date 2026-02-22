@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -9,14 +9,16 @@ import {
   Target,
   TrendingUp,
   CalendarCheck,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   {
-    label: "Log In",
-    href: "/log-in",
+    label: "Today",
+    href: "/today",
     icon: CalendarCheck,
   },
   {
@@ -38,6 +40,13 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/log-in");
+  }
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-card px-3 py-4">
@@ -78,21 +87,31 @@ export function Sidebar() {
 
       <Separator className="my-4" />
 
-      {/* Footer / User area */}
-      <div className="flex items-center gap-3 px-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-          <TrendingUp className="h-4 w-4 text-primary" />
+      {/* Footer */}
+      <div className="space-y-3 px-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs font-medium">Stay focused!</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs font-medium">Stay focused!</p>
-          <p className="text-xs text-muted-foreground">
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "short",
-              day: "numeric",
-            })}
-          </p>
-        </div>
+
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Sign out
+        </button>
       </div>
     </aside>
   );

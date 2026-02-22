@@ -1,118 +1,88 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Header } from "@/components/layout/header";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
-import { CheckCircle2 } from "lucide-react";
-import { ACTIVITIES, loadDayLog, saveDayLog, type ActivityId } from "@/lib/activities";
+import { useState } from "react";
+import { Target } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LogInPage() {
-  const [done, setDone] = useState<Set<ActivityId>>(new Set());
-  const [mounted, setMounted] = useState(false);
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setDone(loadDayLog(new Date()));
-    setMounted(true);
-  }, []);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-  function toggle(id: ActivityId) {
-    setDone((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
-      saveDayLog(next);
-      return next;
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setSent(true);
+    }
+    setLoading(false);
   }
 
-  const count = done.size;
-  const total = ACTIVITIES.length;
-  const percent = Math.round((count / total) * 100);
-  const allDone = count === total;
-
   return (
-    <>
-      <Header
-        title="Log In"
-        description="Tap each activity once you've completed it today"
-      />
-
-      <div className="flex-1 space-y-8 p-6">
-        {/* Daily progress */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">
-              {mounted ? count : 0} / {total} done today
-            </span>
-            <span className="text-muted-foreground">{mounted ? percent : 0}%</span>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-sm space-y-8 px-6">
+        {/* Brand */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+            <Target className="h-6 w-6 text-primary-foreground" />
           </div>
-          <Progress value={mounted ? percent : 0} className="h-2" />
-          {allDone && mounted && (
-            <p className="pt-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-              All done for today — great work!
+          <div className="text-center">
+            <h1 className="text-xl font-semibold">Daily Focus</h1>
+            <p className="text-sm text-muted-foreground">
+              Sign in to track your habits across devices
             </p>
-          )}
+          </div>
         </div>
 
-        {/* Activity tiles — 4 equal columns across full width */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {ACTIVITIES.map((activity) => {
-            const isChecked = mounted && done.has(activity.id);
-            const Icon = activity.icon;
+        {sent ? (
+          <div className="rounded-lg border bg-card p-6 text-center space-y-2">
+            <p className="font-medium">Check your email</p>
+            <p className="text-sm text-muted-foreground">
+              We sent a sign-in link to <strong>{email}</strong>
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium">
+                Email address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
 
-            return (
-              <button
-                key={activity.id}
-                onClick={() => toggle(activity.id)}
-                className={cn(
-                  "group relative flex flex-col items-center justify-center gap-4 rounded-2xl border-2 py-10 text-center transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                  isChecked
-                    ? `border-transparent ${activity.bg} ring-2 ${activity.ring} ring-offset-2 shadow-md`
-                    : "border-border bg-card hover:border-primary/30 hover:shadow-sm"
-                )}
-              >
-                {/* Check badge */}
-                <span
-                  className={cn(
-                    "absolute right-3 top-3 transition-opacity",
-                    isChecked ? "opacity-100" : "opacity-0"
-                  )}
-                >
-                  <CheckCircle2 className={cn("h-5 w-5", activity.color)} />
-                </span>
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
-                {/* Icon circle */}
-                <div
-                  className={cn(
-                    "flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200",
-                    isChecked
-                      ? `${activity.checked} text-white shadow-lg`
-                      : `bg-muted ${activity.color}`
-                  )}
-                >
-                  <Icon className="h-8 w-8" />
-                </div>
-
-                {/* Label */}
-                <span
-                  className={cn(
-                    "text-sm font-semibold transition-colors",
-                    isChecked
-                      ? "text-foreground"
-                      : "text-muted-foreground group-hover:text-foreground"
-                  )}
-                >
-                  {activity.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          Progress is saved automatically and resets each day at midnight.
-        </p>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+            >
+              {loading ? "Sending…" : "Send magic link"}
+            </button>
+          </form>
+        )}
       </div>
-    </>
+    </div>
   );
 }

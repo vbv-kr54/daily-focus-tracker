@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Check } from "lucide-react";
-import { ACTIVITIES, loadDayLog, type ActivityId } from "@/lib/activities";
+import { ACTIVITIES, loadDateRangeFromDB, type ActivityId } from "@/lib/activities";
+import { createClient } from "@/lib/supabase/client";
 
 type DayLog = Record<string, Set<ActivityId>>;
 
@@ -58,12 +59,11 @@ export default function DashboardPage() {
   const days = daysInRange(startDate, endDate);
 
   useEffect(() => {
-    const result: DayLog = {};
-    for (const day of daysInRange(startDate, endDate)) {
-      result[day.toDateString()] = loadDayLog(day);
-    }
-    setLogs(result);
-    setMounted(true);
+    const supabase = createClient();
+    loadDateRangeFromDB(startDate, endDate, supabase).then((result) => {
+      setLogs(result);
+      setMounted(true);
+    });
   }, [startDate, endDate]);
 
   // Summary counts for today
