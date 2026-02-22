@@ -8,11 +8,6 @@ import { ACTIVITIES, loadDayLog, type ActivityId } from "@/lib/activities";
 
 type DayLog = Record<string, Set<ActivityId>>;
 
-function toDateString(iso: string): string {
-  // iso: "YYYY-MM-DD" → Date.toDateString() for use as key
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toDateString();
-}
 
 function daysInRange(startIso: string, endIso: string): Date[] {
   const [sy, sm, sd] = startIso.split("-").map(Number);
