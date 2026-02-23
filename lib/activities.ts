@@ -73,22 +73,30 @@ export async function loadDateRangeFromDB(
   return result;
 }
 
+export type DayLogData = {
+  done: Set<ActivityId>;
+  completedAt: Partial<Record<ActivityId, string>>;
+};
+
 export async function loadDayLogFromDB(
   date: Date,
   supabase: SupabaseClient
-): Promise<Set<ActivityId>> {
+): Promise<DayLogData> {
   const { data, error } = await supabase
     .from("daily_logs")
-    .select("activities")
+    .select("activities, completed_at")
     .eq("date", isoDate(date))
     .maybeSingle();
 
-  if (error || !data) return new Set();
-  return new Set(data.activities as ActivityId[]);
+  if (error || !data) return { done: new Set(), completedAt: {} };
+  return {
+    done: new Set(data.activities as ActivityId[]),
+    completedAt: (data.completed_at ?? {}) as Partial<Record<ActivityId, string>>,
+  };
 }
 
 export async function saveDayLogToDB(
-  done: Set<ActivityId>,
+  logData: DayLogData,
   date: Date,
   supabase: SupabaseClient
 ): Promise<void> {
@@ -98,7 +106,12 @@ export async function saveDayLogToDB(
   if (!user) return;
 
   await supabase.from("daily_logs").upsert(
-    { user_id: user.id, date: isoDate(date), activities: Array.from(done) },
+    {
+      user_id: user.id,
+      date: isoDate(date),
+      activities: Array.from(logData.done),
+      completed_at: logData.completedAt,
+    },
     { onConflict: "user_id,date" }
   );
 }
